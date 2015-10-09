@@ -1,7 +1,14 @@
 [package]
-name    = "riquid"
-version = "0.0.1"
-authors = ["David Muto <david.muto@gmail.com>"]
+name        = "riquid"
+version     = "0.0.1"
+description = "A rust implementation of Liquid"
+authors     = ["David Muto <david.muto@gmail.com>"]
+
+documentation = "https://github.com/pseudomuto/riquid"
+homepage      = "https://github.com/pseudomuto/riquid"
+repository    = "https://github.com/pseudomuto/riquid"
+readme        = "README.md"
+license-file  = "LICENSE"
 
 [dependencies]
 regex = "0.1.41"
