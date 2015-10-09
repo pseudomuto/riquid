@@ -1,0 +1,7 @@
+[package]
+name    = "riquid"
+version = "0.0.1"
+authors = ["David Muto <david.muto@gmail.com>"]
+
+[dependencies]
+regex = "0.1.41"
