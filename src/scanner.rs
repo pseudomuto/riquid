@@ -45,12 +45,24 @@ impl<'t> Scanner<'t> {
     }
 
     pub fn scan(&self, pattern: &::regex::Regex) -> Option<&str> {
+        self.skip_whitespace();
         let rest = self.raw();
 
         match pattern.captures(rest) {
             None => None,
             Some(captures) => { self.get_match(rest, &captures) }
         }
+    }
+
+    pub fn check(&self, pattern: &::regex::Regex) -> bool {
+        self.skip_whitespace();
+        let rest = self.raw();
+
+        pattern.captures(rest).is_some()
+    }
+
+    fn skip_whitespace(&self) {
+        self.skip(self.leading_chars(self.raw()));
     }
 
     fn get_match<'a>(&'a self, source: &'a str, captures: &::regex::Captures) -> Option<&str> {
@@ -67,7 +79,7 @@ impl<'t> Scanner<'t> {
     }
 
     fn leading_chars(&self, string: &str) -> usize {
-        string.len() - string.trim_left().len()
+        string.len() - string.trim_left_matches(char::is_whitespace).len()
     }
 
     fn raw(&self) -> &str {
@@ -156,5 +168,20 @@ mod tests {
         let pattern = ::regex::Regex::new(r"^\d+").unwrap();
         let scanner = Scanner::new("test string");
         assert_eq!(None, scanner.scan(&pattern));
+    }
+
+    #[test]
+    fn scan_returns_none_when_is_eos() {
+        let pattern = ::regex::Regex::new(r"^\w+").unwrap();
+        let scanner = Scanner::new("");
+        assert_eq!(None, scanner.scan(&pattern));
+    }
+
+    #[test]
+    fn scan_returns_none_when_only_whitespace_characters_remain() {
+        let pattern = ::regex::Regex::new(r"^\w+").unwrap();
+        let scanner = Scanner::new("  \t \r\n ");
+        assert_eq!(None, scanner.scan(&pattern));
+        assert!(scanner.is_eos())
     }
 }
