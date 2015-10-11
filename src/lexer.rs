@@ -12,11 +12,11 @@ const RANGE_OP:              &'static str = r"^\.\.";
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Token {
-    Comparison(String),
-    Identifier(String),
-    Number(String),
-    String(String),
-    Range(String),
+    Comparison,
+    Identifier,
+    Number,
+    String,
+    Range,
     Pipe,
     Dot,
     Colon,
@@ -29,10 +29,21 @@ pub enum Token {
     Dash
 }
 
+pub type LexedToken = (Token, String);
+
 macro_rules! token {
-    (Range)               => (token!(Range, ".."));
-    ($e:ident)            => (Token::$e);
-    ($e:ident, $str:expr) => (Token::$e(String::from($str)))
+    (Range)                         => (token!(Range, ".."));
+    (Pipe)                          => (token!(Pipe, "|"));
+    (Dot)                           => (token!(Dot, "."));
+    (Colon)                         => (token!(Colon, ":"));
+    (Comma)                         => (token!(Comma, ","));
+    (OpenSquare)                    => (token!(OpenSquare, "["));
+    (CloseSquare)                   => (token!(CloseSquare, "]"));
+    (OpenRound)                     => (token!(OpenRound, "("));
+    (CloseRound)                    => (token!(CloseRound, ")"));
+    (Question)                      => (token!(Question, "?"));
+    (Dash)                          => (token!(Dash, "-"));
+    ($tokenType:ident, $value:expr) => ((Token::$tokenType, String::from($value)));
 }
 
 pub struct Tokens<'t> {
@@ -67,7 +78,7 @@ impl<'t> Tokens<'t> {
         Tokens { scanner: scanner, specials: specials, matchers: matchers }
     }
 
-    fn token_for(&self, pattern: &Regex, value: &str) -> Token {
+    fn token_for(&self, pattern: &Regex, value: &str) -> LexedToken {
         match pattern.as_str() {
             COMPARISON            => token!(Comparison, value),
             SINGLE_STRING_LITERAL => token!(String, value),
@@ -79,23 +90,23 @@ impl<'t> Tokens<'t> {
         }
     }
 
-    fn next_match(&self) -> Option<Token> {
+    fn next_match(&self) -> Option<LexedToken> {
         match self.matchers.iter().find(|&m| self.scanner.check(m)) {
             Some(regex) => self.matched_token(&regex),
             None => self.matched_special()
         }
     }
 
-    fn matched_token(&self, pattern: &Regex) -> Option<Token> {
+    fn matched_token(&self, pattern: &Regex) -> Option<LexedToken> {
         let value = self.scanner.scan(pattern).unwrap();
         Some(self.token_for(pattern, value))
     }
 
-    fn matched_special(&self) -> Option<Token> {
+    fn matched_special(&self) -> Option<LexedToken> {
         match self.scanner.get_char() {
             Some(character) => {
                 match self.specials.get(character) {
-                    Some(token) => Some((*token).clone()),
+                    Some(token) => Some(((*token).clone(), character.into())),
                     None => unreachable!("Syntax Error")
                 }
             },
@@ -105,9 +116,9 @@ impl<'t> Tokens<'t> {
 }
 
 impl<'t> Iterator for Tokens<'t> {
-    type Item = Token;
+    type Item = (Token, String);
 
-    fn next(&mut self) -> Option<Token> {
+    fn next(&mut self) -> Option<LexedToken> {
         self.next_match()
     }
 }
@@ -130,7 +141,7 @@ impl<'t> Lexer<'t> {
 mod tests {
     use super::*;
 
-    fn compare_tokens(lexer: &Lexer, expectedTokens: Vec<Token>) {
+    fn compare_tokens(lexer: &Lexer, expectedTokens: Vec<LexedToken>) {
         let zipped = lexer.tokens().zip(expectedTokens);
 
         for token in zipped {
@@ -147,16 +158,16 @@ mod tests {
 
     #[test]
     fn tokens_when_given_a_blank_string() {
-        let lexer              = Lexer::new("");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer                   = Lexer::new("");
+        let tokens: Vec<LexedToken> = lexer.tokens().collect();
 
         assert_eq!(0, tokens.len());
     }
 
     #[test]
     fn tokens_when_given_a_whitespace_only_string() {
-        let lexer              = Lexer::new("  \t \n\r ");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer                   = Lexer::new("  \t \n\r ");
+        let tokens: Vec<LexedToken> = lexer.tokens().collect();
 
         assert_eq!(0, tokens.len());
     }
@@ -278,7 +289,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Syntax Error")]
     fn tokens_freaks_out_with_syntax_error() {
-        let lexer              = Lexer::new("%");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer                   = Lexer::new("%");
+        let tokens: Vec<LexedToken> = lexer.tokens().collect();
     }
 }
