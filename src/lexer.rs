@@ -11,11 +11,20 @@ const RANGE_OP:              &'static str = r"^\.\.";
 #[derive(Debug, PartialEq)]
 pub enum Token {
     Comparison(String),
-    EndOfString,
     Identifier(String),
     Number(String),
-    Range,
     String(String),
+    Range,
+    EndOfString,
+}
+
+macro_rules! token {
+    (Comparison => $e:expr) => (Token::Comparison(String::from($e)));
+    (Identifier => $e:expr) => (Token::Identifier(String::from($e)));
+    (Number => $e:expr) => (Token::Number(String::from($e)));
+    (String => $e:expr) => (Token::String(String::from($e)));
+    (Range) => (Token::Range);
+    (EndOfString) => (Token::EndOfString);
 }
 
 pub struct Tokens<'t> {
@@ -25,13 +34,13 @@ pub struct Tokens<'t> {
 impl<'t> Tokens<'t> {
     fn token_for(&self, pattern: &Regex, value: &str) -> Token {
         match pattern.as_str() {
-            COMPARISON => Token::Comparison(value.to_string()),
-            SINGLE_STRING_LITERAL => Token::String(value.to_string()),
-            DOUBLE_STRING_LITERAL => Token::String(value.to_string()),
-            NUMBER_LITERAL => Token::Number(value.to_string()),
-            IDENTIFIER => Token::Identifier(value.to_string()),
-            RANGE_OP => Token::Range,
-            _ => Token::EndOfString
+            COMPARISON            => token!(Comparison => value),
+            SINGLE_STRING_LITERAL => token!(String => value),
+            DOUBLE_STRING_LITERAL => token!(String => value),
+            NUMBER_LITERAL        => token!(Number => value),
+            IDENTIFIER            => token!(Identifier => value),
+            RANGE_OP              => token!(Range),
+            _                     => token!(EndOfString)
         }
     }
 }
@@ -105,8 +114,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(Token::Identifier("high".to_string()), tokens[0]);
-        assert_eq!(Token::Identifier("five?".to_string()), tokens[1]);
+        assert_eq!(token!(Identifier => "high"), tokens[0]);
+        assert_eq!(token!(Identifier => "five?"), tokens[1]);
     }
 
     #[test]
@@ -115,10 +124,10 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(4, tokens.len());
-        assert_eq!(Token::Number("2".to_string()), tokens[0]);
-        assert_eq!(Token::Identifier("foo".to_string()), tokens[1]);
-        assert_eq!(Token::Number("5.0".to_string()), tokens[2]);
-        assert_eq!(Token::Identifier("bar".to_string()), tokens[3]);
+        assert_eq!(token!(Number => "2"), tokens[0]);
+        assert_eq!(token!(Identifier => "foo"), tokens[1]);
+        assert_eq!(token!(Number => "5.0"), tokens[2]);
+        assert_eq!(token!(Identifier => "bar"), tokens[3]);
     }
 
     #[test]
@@ -127,8 +136,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(Token::String(r#"'this is a test""'"#.to_string()), tokens[0]);
-        assert_eq!(Token::String(r#""wat 'lol'""#.to_string()), tokens[1]);
+        assert_eq!(token!(String => r#"'this is a test""'"#), tokens[0]);
+        assert_eq!(token!(String => r#""wat 'lol'""#), tokens[1]);
     }
 
     #[test]
@@ -137,8 +146,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(Token::Identifier("hi".to_string()), tokens[0]);
-        assert_eq!(Token::Number("50".to_string()), tokens[1]);
+        assert_eq!(token!(Identifier => "hi"), tokens[0]);
+        assert_eq!(token!(Number => "50"), tokens[1]);
     }
 
     #[test]
@@ -147,8 +156,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(Token::Identifier("hi".to_string()), tokens[0]);
-        assert_eq!(Token::Number("5.0".to_string()), tokens[1]);
+        assert_eq!(token!(Identifier => "hi"), tokens[0]);
+        assert_eq!(token!(Number => "5.0"), tokens[1]);
     }
 
     #[test]
@@ -157,9 +166,9 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(3, tokens.len());
-        assert_eq!(Token::Comparison("==".to_string()), tokens[0]);
-        assert_eq!(Token::Comparison("<>".to_string()), tokens[1]);
-        assert_eq!(Token::Comparison("contains".to_string()), tokens[2]);
+        assert_eq!(token!(Comparison => "=="), tokens[0]);
+        assert_eq!(token!(Comparison => "<>"), tokens[1]);
+        assert_eq!(token!(Comparison => "contains"), tokens[2]);
     }
 
     #[test]
@@ -168,8 +177,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(3, tokens.len());
-        assert_eq!(Token::Number("1".to_string()), tokens[0]);
-        assert_eq!(Token::Range, tokens[1]);
-        assert_eq!(Token::Number("10".to_string()), tokens[2]);
+        assert_eq!(token!(Number => "1"), tokens[0]);
+        assert_eq!(token!(Range), tokens[1]);
+        assert_eq!(token!(Number => "10"), tokens[2]);
     }
 }
