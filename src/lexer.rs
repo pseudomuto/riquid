@@ -130,6 +130,15 @@ impl<'t> Lexer<'t> {
 mod tests {
     use super::*;
 
+    fn compare_tokens(lexer: &Lexer, expectedTokens: Vec<Token>) {
+        let zipped = lexer.tokens().zip(expectedTokens);
+
+        for token in zipped {
+            let (actual, expected) = token;
+            assert_eq!(expected, actual);
+        }
+    }
+
     #[test]
     fn new_creates_a_new_instance() {
         let lexer = Lexer::new("doSomthing | filter");
@@ -154,107 +163,116 @@ mod tests {
 
     #[test]
     fn tokens_parses_identifiers() {
-        let lexer              = Lexer::new("high five?");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("high five?");
+        let expected = vec![
+            token!(Identifier, "high"),
+            token!(Identifier, "five?")
+        ];
 
-        assert_eq!(2, tokens.len());
-        assert_eq!(token!(Identifier, "high"), tokens[0]);
-        assert_eq!(token!(Identifier, "five?"), tokens[1]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_knows_that_identifiers_dont_start_with_numbers() {
-        let lexer              = Lexer::new("2foo 5.0bar");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("2foo 5.0bar");
+        let expected = vec![
+            token!(Number, "2"),
+            token!(Identifier, "foo"),
+            token!(Number, "5.0"),
+            token!(Identifier, "bar")
+        ];
 
-        assert_eq!(4, tokens.len());
-        assert_eq!(token!(Number, "2"), tokens[0]);
-        assert_eq!(token!(Identifier, "foo"), tokens[1]);
-        assert_eq!(token!(Number, "5.0"), tokens[2]);
-        assert_eq!(token!(Identifier, "bar"), tokens[3]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_parses_string_literals() {
-        let lexer              = Lexer::new(r#" 'this is a test""' "wat 'lol'" "#);
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new(r#" 'this is a test""' "wat 'lol'" "#);
+        let expected = vec![
+            token!(String, r#"'this is a test""'"#),
+            token!(String, r#""wat 'lol'""#)
+        ];
 
-        assert_eq!(2, tokens.len());
-        assert_eq!(token!(String, r#"'this is a test""'"#), tokens[0]);
-        assert_eq!(token!(String, r#""wat 'lol'""#), tokens[1]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_parses_integers() {
-        let lexer              = Lexer::new("hi 50");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("hi 50");
+        let expected = vec![
+            token!(Identifier, "hi"),
+            token!(Number, "50")
+        ];
 
-        assert_eq!(2, tokens.len());
-        assert_eq!(token!(Identifier, "hi"), tokens[0]);
-        assert_eq!(token!(Number, "50"), tokens[1]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_parses_floats() {
-        let lexer              = Lexer::new("hi 5.0");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("hi 5.0");
+        let expected = vec![
+            token!(Identifier, "hi"),
+            token!(Number, "5.0")
+        ];
 
-        assert_eq!(2, tokens.len());
-        assert_eq!(token!(Identifier, "hi"), tokens[0]);
-        assert_eq!(token!(Number, "5.0"), tokens[1]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_parses_comparisons() {
-        let lexer              = Lexer::new("== <> contains");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("== <> contains");
+        let expected = vec![
+            token!(Comparison, "=="),
+            token!(Comparison, "<>"),
+            token!(Comparison, "contains")
+        ];
 
-        assert_eq!(3, tokens.len());
-        assert_eq!(token!(Comparison, "=="), tokens[0]);
-        assert_eq!(token!(Comparison, "<>"), tokens[1]);
-        assert_eq!(token!(Comparison, "contains"), tokens[2]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_parses_range_operator() {
-        let lexer              = Lexer::new("1..10");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("1..10");
+        let expected = vec![
+            token!(Number, "1"),
+            token!(Range),
+            token!(Number, "10")
+        ];
 
-        assert_eq!(3, tokens.len());
-        assert_eq!(token!(Number, "1"), tokens[0]);
-        assert_eq!(token!(Range), tokens[1]);
-        assert_eq!(token!(Number, "10"), tokens[2]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_parses_special_characters() {
-        let lexer              = Lexer::new("[hi], (| .:) - ?cool");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("[hi], (| .:) - ?cool");
+        let expected = vec![
+            token!(OpenSquare),
+            token!(Identifier, "hi"),
+            token!(CloseSquare),
+            token!(Comma),
+            token!(OpenRound),
+            token!(Pipe),
+            token!(Dot),
+            token!(Colon),
+            token!(CloseRound),
+            token!(Dash),
+            token!(Question),
+            token!(Identifier, "cool")
+        ];
 
-        assert_eq!(12, tokens.len());
-        assert_eq!(token!(OpenSquare), tokens[0]);
-        assert_eq!(token!(Identifier, "hi"), tokens[1]);
-        assert_eq!(token!(CloseSquare), tokens[2]);
-        assert_eq!(token!(Comma), tokens[3]);
-        assert_eq!(token!(OpenRound), tokens[4]);
-        assert_eq!(token!(Pipe), tokens[5]);
-        assert_eq!(token!(Dot), tokens[6]);
-        assert_eq!(token!(Colon), tokens[7]);
-        assert_eq!(token!(CloseRound), tokens[8]);
-        assert_eq!(token!(Dash), tokens[9]);
-        assert_eq!(token!(Question), tokens[10]);
-        assert_eq!(token!(Identifier, "cool"), tokens[11]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
     fn tokens_skips_internal_whitespace() {
-        let lexer              = Lexer::new("five|\n\t  ==");
-        let tokens: Vec<Token> = lexer.tokens().collect();
+        let lexer    = Lexer::new("five|\n\t ==");
+        let expected = vec![
+            token!(Identifier, "five"),
+            token!(Pipe),
+            token!(Comparison, "==")
+        ];
 
-        assert_eq!(3, tokens.len());
-        assert_eq!(token!(Identifier, "five"), tokens[0]);
-        assert_eq!(token!(Pipe), tokens[1]);
-        assert_eq!(token!(Comparison, "=="), tokens[2]);
+        compare_tokens(&lexer, expected);
     }
 
     #[test]
