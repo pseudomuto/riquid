@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use scanner::Scanner;
 use regex::Regex;
 
@@ -8,45 +10,63 @@ const NUMBER_LITERAL:        &'static str = r"^-?\d+(\.\d+)?";
 const IDENTIFIER:            &'static str = r"^[a-zA-Z_][\w-]*\??";
 const RANGE_OP:              &'static str = r"^\.\.";
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Token {
     Comparison(String),
     Identifier(String),
     Number(String),
     String(String),
-    Range(String)
+    Range(String),
+    Pipe,
+    Dot,
+    Colon,
+    Comma,
+    OpenSquare,
+    CloseSquare,
+    OpenRound,
+    CloseRound,
+    Question,
+    Dash
 }
 
 macro_rules! token {
-    (Comparison => $e:expr) => (Token::Comparison(String::from($e)));
-    (Identifier => $e:expr) => (Token::Identifier(String::from($e)));
-    (Number => $e:expr) => (Token::Number(String::from($e)));
-    (String => $e:expr) => (Token::String(String::from($e)));
-    (Range) => (Token::Range("..".into()));
+    (Comparison   => $e:expr) => (Token::Comparison(String::from($e)));
+    (Identifier   => $e:expr) => (Token::Identifier(String::from($e)));
+    (Number       => $e:expr) => (Token::Number(String::from($e)));
+    (String       => $e:expr) => (Token::String(String::from($e)));
+    (Range)       => (Token::Range("..".into()));
+    (Pipe)        => (Token::Pipe);
+    (Dot)         => (Token::Dot);
+    (Colon)       => (Token::Colon);
+    (Comma)       => (Token::Comma);
+    (OpenSquare)  => (Token::OpenSquare);
+    (CloseSquare) => (Token::CloseSquare);
+    (OpenRound)   => (Token::OpenRound);
+    (CloseRound)  => (Token::CloseRound);
+    (Question)    => (Token::Question);
+    (Dash)        => (Token::Dash);
 }
 
 pub struct Tokens<'t> {
-    scanner: &'t Scanner<'t>
+    scanner: &'t Scanner<'t>,
+    specials: HashMap<&'t str, Token>,
+    matchers: Vec<Regex>
 }
 
 impl<'t> Tokens<'t> {
-    fn token_for(&self, pattern: &Regex, value: &str) -> Token {
-        match pattern.as_str() {
-            COMPARISON            => token!(Comparison => value),
-            SINGLE_STRING_LITERAL => token!(String => value),
-            DOUBLE_STRING_LITERAL => token!(String => value),
-            NUMBER_LITERAL        => token!(Number => value),
-            IDENTIFIER            => token!(Identifier => value),
-            RANGE_OP              => token!(Range),
-            _                     => unreachable!()
-        }
-    }
-}
+    fn new<'a>(scanner: &'a Scanner<'a>) -> Tokens<'a> {
+        let mut specials = HashMap::new();
+        specials.insert("|", Token::Pipe);
+        specials.insert(".", Token::Dot);
+        specials.insert(":", Token::Colon);
+        specials.insert(",", Token::Comma);
+        specials.insert("[", Token::OpenSquare);
+        specials.insert("]", Token::CloseSquare);
+        specials.insert("(", Token::OpenRound);
+        specials.insert(")", Token::CloseRound);
+        specials.insert("?", Token::Question);
+        specials.insert("-", Token::Dash);
 
-impl<'t> Iterator for Tokens<'t> {
-    type Item = Token;
-
-    fn next(&mut self) -> Option<Token> {
         let matchers = vec![
             Regex::new(COMPARISON).unwrap(),
             Regex::new(SINGLE_STRING_LITERAL).unwrap(),
@@ -56,13 +76,51 @@ impl<'t> Iterator for Tokens<'t> {
             Regex::new(RANGE_OP).unwrap()
         ];
 
-        match matchers.iter().find(|&m| self.scanner.check(m)) {
-            None => None,
-            Some(regex) => {
-                let value = self.scanner.scan(&regex).unwrap();
-                Some(self.token_for(&regex, &value))
-            }
+        Tokens { scanner: scanner, specials: specials, matchers: matchers }
+    }
+
+    fn token_for(&self, pattern: &Regex, value: &str) -> Token {
+        match pattern.as_str() {
+            COMPARISON            => token!(Comparison => value),
+            SINGLE_STRING_LITERAL => token!(String => value),
+            DOUBLE_STRING_LITERAL => token!(String => value),
+            NUMBER_LITERAL        => token!(Number => value),
+            IDENTIFIER            => token!(Identifier => value),
+            RANGE_OP              => token!(Range),
+            _                     => unreachable!() // already been checked for existence
         }
+    }
+
+    fn next_match(&self) -> Option<Token> {
+        match self.matchers.iter().find(|&m| self.scanner.check(m)) {
+            Some(regex) => self.matched_token(&regex),
+            None => self.matched_special()
+        }
+    }
+
+    fn matched_token(&self, pattern: &Regex) -> Option<Token> {
+        let value = self.scanner.scan(pattern).unwrap();
+        Some(self.token_for(pattern, value))
+    }
+
+    fn matched_special(&self) -> Option<Token> {
+        match self.scanner.get_char() {
+            Some(character) => {
+                match self.specials.get(character) {
+                    Some(token) => Some((*token).clone()),
+                    None => unreachable!("Syntax Error")
+                }
+            },
+            None => None
+        }
+    }
+}
+
+impl<'t> Iterator for Tokens<'t> {
+    type Item = Token;
+
+    fn next(&mut self) -> Option<Token> {
+        self.next_match()
     }
 }
 
@@ -76,7 +134,7 @@ impl<'t> Lexer<'t> {
     }
 
     pub fn tokens(&self) -> Tokens {
-        Tokens { scanner: &self.scanner }
+        Tokens::new(&self.scanner)
     }
 }
 
@@ -178,5 +236,43 @@ mod tests {
         assert_eq!(token!(Number => "1"), tokens[0]);
         assert_eq!(token!(Range), tokens[1]);
         assert_eq!(token!(Number => "10"), tokens[2]);
+    }
+
+    #[test]
+    fn tokens_parses_special_characters() {
+        let lexer              = Lexer::new("[hi], (| .:) - ?cool");
+        let tokens: Vec<Token> = lexer.tokens().collect();
+
+        assert_eq!(12, tokens.len());
+        assert_eq!(token!(OpenSquare), tokens[0]);
+        assert_eq!(token!(Identifier => "hi"), tokens[1]);
+        assert_eq!(token!(CloseSquare), tokens[2]);
+        assert_eq!(token!(Comma), tokens[3]);
+        assert_eq!(token!(OpenRound), tokens[4]);
+        assert_eq!(token!(Pipe), tokens[5]);
+        assert_eq!(token!(Dot), tokens[6]);
+        assert_eq!(token!(Colon), tokens[7]);
+        assert_eq!(token!(CloseRound), tokens[8]);
+        assert_eq!(token!(Dash), tokens[9]);
+        assert_eq!(token!(Question), tokens[10]);
+        assert_eq!(token!(Identifier => "cool"), tokens[11]);
+    }
+
+    #[test]
+    fn tokens_skips_internal_whitespace() {
+        let lexer              = Lexer::new("five|\n\t  ==");
+        let tokens: Vec<Token> = lexer.tokens().collect();
+
+        assert_eq!(3, tokens.len());
+        assert_eq!(token!(Identifier => "five"), tokens[0]);
+        assert_eq!(token!(Pipe), tokens[1]);
+        assert_eq!(token!(Comparison => "=="), tokens[2]);
+    }
+
+    #[test]
+    #[should_panic(expected = "Syntax Error")]
+    fn tokens_freaks_out_with_syntax_error() {
+        let lexer              = Lexer::new("%");
+        let tokens: Vec<Token> = lexer.tokens().collect();
     }
 }
