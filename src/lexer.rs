@@ -14,8 +14,7 @@ pub enum Token {
     Identifier(String),
     Number(String),
     String(String),
-    Range,
-    EndOfString,
+    Range(String)
 }
 
 macro_rules! token {
@@ -23,8 +22,7 @@ macro_rules! token {
     (Identifier => $e:expr) => (Token::Identifier(String::from($e)));
     (Number => $e:expr) => (Token::Number(String::from($e)));
     (String => $e:expr) => (Token::String(String::from($e)));
-    (Range) => (Token::Range);
-    (EndOfString) => (Token::EndOfString);
+    (Range) => (Token::Range("..".into()));
 }
 
 pub struct Tokens<'t> {
@@ -40,7 +38,7 @@ impl<'t> Tokens<'t> {
             NUMBER_LITERAL        => token!(Number => value),
             IDENTIFIER            => token!(Identifier => value),
             RANGE_OP              => token!(Range),
-            _                     => token!(EndOfString)
+            _                     => unreachable!()
         }
     }
 }
