@@ -30,21 +30,9 @@ pub enum Token {
 }
 
 macro_rules! token {
-    (Comparison   => $e:expr) => (Token::Comparison(String::from($e)));
-    (Identifier   => $e:expr) => (Token::Identifier(String::from($e)));
-    (Number       => $e:expr) => (Token::Number(String::from($e)));
-    (String       => $e:expr) => (Token::String(String::from($e)));
-    (Range)       => (Token::Range("..".into()));
-    (Pipe)        => (Token::Pipe);
-    (Dot)         => (Token::Dot);
-    (Colon)       => (Token::Colon);
-    (Comma)       => (Token::Comma);
-    (OpenSquare)  => (Token::OpenSquare);
-    (CloseSquare) => (Token::CloseSquare);
-    (OpenRound)   => (Token::OpenRound);
-    (CloseRound)  => (Token::CloseRound);
-    (Question)    => (Token::Question);
-    (Dash)        => (Token::Dash);
+    (Range)               => (token!(Range, ".."));
+    ($e:ident)            => (Token::$e);
+    ($e:ident, $str:expr) => (Token::$e(String::from($str)))
 }
 
 pub struct Tokens<'t> {
@@ -81,11 +69,11 @@ impl<'t> Tokens<'t> {
 
     fn token_for(&self, pattern: &Regex, value: &str) -> Token {
         match pattern.as_str() {
-            COMPARISON            => token!(Comparison => value),
-            SINGLE_STRING_LITERAL => token!(String => value),
-            DOUBLE_STRING_LITERAL => token!(String => value),
-            NUMBER_LITERAL        => token!(Number => value),
-            IDENTIFIER            => token!(Identifier => value),
+            COMPARISON            => token!(Comparison, value),
+            SINGLE_STRING_LITERAL => token!(String, value),
+            DOUBLE_STRING_LITERAL => token!(String, value),
+            NUMBER_LITERAL        => token!(Number, value),
+            IDENTIFIER            => token!(Identifier, value),
             RANGE_OP              => token!(Range),
             _                     => unreachable!() // already been checked for existence
         }
@@ -170,8 +158,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(token!(Identifier => "high"), tokens[0]);
-        assert_eq!(token!(Identifier => "five?"), tokens[1]);
+        assert_eq!(token!(Identifier, "high"), tokens[0]);
+        assert_eq!(token!(Identifier, "five?"), tokens[1]);
     }
 
     #[test]
@@ -180,10 +168,10 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(4, tokens.len());
-        assert_eq!(token!(Number => "2"), tokens[0]);
-        assert_eq!(token!(Identifier => "foo"), tokens[1]);
-        assert_eq!(token!(Number => "5.0"), tokens[2]);
-        assert_eq!(token!(Identifier => "bar"), tokens[3]);
+        assert_eq!(token!(Number, "2"), tokens[0]);
+        assert_eq!(token!(Identifier, "foo"), tokens[1]);
+        assert_eq!(token!(Number, "5.0"), tokens[2]);
+        assert_eq!(token!(Identifier, "bar"), tokens[3]);
     }
 
     #[test]
@@ -192,8 +180,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(token!(String => r#"'this is a test""'"#), tokens[0]);
-        assert_eq!(token!(String => r#""wat 'lol'""#), tokens[1]);
+        assert_eq!(token!(String, r#"'this is a test""'"#), tokens[0]);
+        assert_eq!(token!(String, r#""wat 'lol'""#), tokens[1]);
     }
 
     #[test]
@@ -202,8 +190,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(token!(Identifier => "hi"), tokens[0]);
-        assert_eq!(token!(Number => "50"), tokens[1]);
+        assert_eq!(token!(Identifier, "hi"), tokens[0]);
+        assert_eq!(token!(Number, "50"), tokens[1]);
     }
 
     #[test]
@@ -212,8 +200,8 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(2, tokens.len());
-        assert_eq!(token!(Identifier => "hi"), tokens[0]);
-        assert_eq!(token!(Number => "5.0"), tokens[1]);
+        assert_eq!(token!(Identifier, "hi"), tokens[0]);
+        assert_eq!(token!(Number, "5.0"), tokens[1]);
     }
 
     #[test]
@@ -222,9 +210,9 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(3, tokens.len());
-        assert_eq!(token!(Comparison => "=="), tokens[0]);
-        assert_eq!(token!(Comparison => "<>"), tokens[1]);
-        assert_eq!(token!(Comparison => "contains"), tokens[2]);
+        assert_eq!(token!(Comparison, "=="), tokens[0]);
+        assert_eq!(token!(Comparison, "<>"), tokens[1]);
+        assert_eq!(token!(Comparison, "contains"), tokens[2]);
     }
 
     #[test]
@@ -233,9 +221,9 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(3, tokens.len());
-        assert_eq!(token!(Number => "1"), tokens[0]);
+        assert_eq!(token!(Number, "1"), tokens[0]);
         assert_eq!(token!(Range), tokens[1]);
-        assert_eq!(token!(Number => "10"), tokens[2]);
+        assert_eq!(token!(Number, "10"), tokens[2]);
     }
 
     #[test]
@@ -245,7 +233,7 @@ mod tests {
 
         assert_eq!(12, tokens.len());
         assert_eq!(token!(OpenSquare), tokens[0]);
-        assert_eq!(token!(Identifier => "hi"), tokens[1]);
+        assert_eq!(token!(Identifier, "hi"), tokens[1]);
         assert_eq!(token!(CloseSquare), tokens[2]);
         assert_eq!(token!(Comma), tokens[3]);
         assert_eq!(token!(OpenRound), tokens[4]);
@@ -255,7 +243,7 @@ mod tests {
         assert_eq!(token!(CloseRound), tokens[8]);
         assert_eq!(token!(Dash), tokens[9]);
         assert_eq!(token!(Question), tokens[10]);
-        assert_eq!(token!(Identifier => "cool"), tokens[11]);
+        assert_eq!(token!(Identifier, "cool"), tokens[11]);
     }
 
     #[test]
@@ -264,9 +252,9 @@ mod tests {
         let tokens: Vec<Token> = lexer.tokens().collect();
 
         assert_eq!(3, tokens.len());
-        assert_eq!(token!(Identifier => "five"), tokens[0]);
+        assert_eq!(token!(Identifier, "five"), tokens[0]);
         assert_eq!(token!(Pipe), tokens[1]);
-        assert_eq!(token!(Comparison => "=="), tokens[2]);
+        assert_eq!(token!(Comparison, "=="), tokens[2]);
     }
 
     #[test]
