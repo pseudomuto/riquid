@@ -1,6 +1,8 @@
 use std::cell::Cell;
 use std::cmp;
 
+use regex::{Captures,Regex};
+
 pub struct Scanner<'t> {
     source: &'t str,
     index: Cell<usize>,
@@ -44,17 +46,14 @@ impl<'t> Scanner<'t> {
         Some(chr)
     }
 
-    pub fn scan(&self, pattern: &::regex::Regex) -> Option<&str> {
+    pub fn scan(&self, pattern: &Regex) -> Option<&str> {
         self.skip_whitespace();
         let rest = self.raw();
 
-        match pattern.captures(rest) {
-            None => None,
-            Some(captures) => { self.get_match(rest, &captures) }
-        }
+        pattern.captures(rest).and_then(|captures| self.get_match(rest, &captures))
     }
 
-    pub fn check(&self, pattern: &::regex::Regex) -> bool {
+    pub fn check(&self, pattern: &Regex) -> bool {
         self.skip_whitespace();
         let rest = self.raw();
 
@@ -65,17 +64,16 @@ impl<'t> Scanner<'t> {
         self.skip(self.leading_chars(self.raw()));
     }
 
-    fn get_match<'a>(&'a self, source: &'a str, captures: &::regex::Captures) -> Option<&str> {
-        match captures.pos(0) {
-            None => None,
-            Some((_, count)) => {
+    fn get_match<'a>(&'a self, source: &'a str, captures: &Captures) -> Option<&str> {
+        captures
+            .pos(0)
+            .and_then(|(_, count)| {
                 let matched   = &source[0..count];
                 let remaining = &source[count..];
 
                 self.skip(count + self.leading_chars(remaining));
                 Some(matched)
-            }
-        }
+            })
     }
 
     fn leading_chars(&self, string: &str) -> usize {
@@ -90,6 +88,7 @@ impl<'t> Scanner<'t> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use regex::Regex;
 
     #[test]
     fn new_returns_a_new_scanner() {
@@ -155,7 +154,7 @@ mod tests {
 
     #[test]
     fn scan_retrieves_tokens_from_the_current_position_until_the_end() {
-        let pattern = ::regex::Regex::new(r"^\w+").unwrap();
+        let pattern = Regex::new(r"^\w+").unwrap();
         let scanner = Scanner::new("test string words");
         assert_eq!("test", scanner.scan(&pattern).unwrap());
         assert_eq!("string", scanner.scan(&pattern).unwrap());
@@ -165,21 +164,21 @@ mod tests {
 
     #[test]
     fn scan_returns_none_when_not_found() {
-        let pattern = ::regex::Regex::new(r"^\d+").unwrap();
+        let pattern = Regex::new(r"^\d+").unwrap();
         let scanner = Scanner::new("test string");
         assert_eq!(None, scanner.scan(&pattern));
     }
 
     #[test]
     fn scan_returns_none_when_is_eos() {
-        let pattern = ::regex::Regex::new(r"^\w+").unwrap();
+        let pattern = Regex::new(r"^\w+").unwrap();
         let scanner = Scanner::new("");
         assert_eq!(None, scanner.scan(&pattern));
     }
 
     #[test]
     fn scan_returns_none_when_only_whitespace_characters_remain() {
-        let pattern = ::regex::Regex::new(r"^\w+").unwrap();
+        let pattern = Regex::new(r"^\w+").unwrap();
         let scanner = Scanner::new("  \t \r\n ");
         assert_eq!(None, scanner.scan(&pattern));
         assert!(scanner.is_eos())
