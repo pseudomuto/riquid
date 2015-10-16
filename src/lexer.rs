@@ -91,10 +91,9 @@ impl<'t> Tokens<'t> {
     }
 
     fn next_match(&self) -> Option<LexedToken> {
-        match self.matchers.iter().find(|&m| self.scanner.check(m)) {
-            Some(regex) => self.matched_token(&regex),
-            None => self.matched_special()
-        }
+        self.matchers.iter().find(|&m| self.scanner.check(m))
+            .and_then(|regex| self.matched_token(&regex))
+            .or_else(|| self.matched_special())
     }
 
     fn matched_token(&self, pattern: &Regex) -> Option<LexedToken> {
@@ -103,15 +102,12 @@ impl<'t> Tokens<'t> {
     }
 
     fn matched_special(&self) -> Option<LexedToken> {
-        match self.scanner.get_char() {
-            Some(character) => {
-                match self.specials.get(character) {
-                    Some(token) => Some(((*token).clone(), character.into())),
-                    None => unreachable!("Syntax Error")
-                }
-            },
-            None => None
-        }
+        self.scanner.get_char()
+            .and_then(|character| {
+                self.specials.get(character)
+                    .and_then(|token| Some(((*token).clone(), character.into())))
+                    .or_else(|| unreachable!("Syntax Error"))
+            })
     }
 }
 
@@ -141,11 +137,10 @@ impl<'t> Lexer<'t> {
 mod tests {
     use super::*;
 
-    fn compare_tokens(lexer: &Lexer, expectedTokens: Vec<LexedToken>) {
-        let zipped = lexer.tokens().zip(expectedTokens);
+    fn compare_tokens(lexer: &Lexer, expected_tokens: Vec<LexedToken>) {
+        let zipped = lexer.tokens().zip(expected_tokens);
 
-        for token in zipped {
-            let (actual, expected) = token;
+        for (actual, expected) in zipped {
             assert_eq!(expected, actual);
         }
     }
