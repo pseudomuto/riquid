@@ -173,4 +173,50 @@ mod tests {
             " "
         ]);
     }
+
+    #[test]
+    fn tokenize_multiline_string() {
+        let tokenizer = Tokenizer::new("{%comment%}\nMy Comment\n{%endcomment%}\n");
+
+        assert_tokens(&tokenizer, vec![
+            "{%comment%}",
+            "\nMy Comment\n",
+            "{%endcomment%}",
+            "\n"
+        ]);
+    }
+
+    #[test]
+    fn tokenize_html_with_liquid() {
+        let content = r#"
+<html>
+  <head>
+    <title>{{ title }}</title>
+  </head>
+  <body class="some-class">
+    <p>{% comment %}Content here{% endcomment %}</p>
+    <script type="text/javascript">
+      var {{ name }} = function() {
+        alert("{{ js_value }}");
+      };
+    </script>
+  </body>
+</html>
+        "#;
+
+        let tokenizer = Tokenizer::new(&content);
+        assert_tokens(&tokenizer, vec![
+            "\n<html>\n  <head>\n    <title>",
+            "{{ title }}",
+            "</title>\n  </head>\n  <body class=\"some-class\">\n    <p>",
+            "{% comment %}",
+            "Content here",
+            "{% endcomment %}",
+            "</p>\n    <script type=\"text/javascript\">\n      var ",
+            "{{ name }}",
+            " = function() {\n        alert(\"",
+            "{{ js_value }}",
+            "\");\n      };\n    </script>\n  </body>\n</html>\n        "
+        ]);
+    }
 }
