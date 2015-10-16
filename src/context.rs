@@ -10,32 +10,57 @@ pub enum Variable {
 }
 
 pub struct Context {
-    variables: HashMap<String, Variable>,
+    variables: Vec<HashMap<String, Variable>>,
+    current_scope: usize,
 }
 
 impl Context {
-    fn new() -> Context {
+    pub fn new() -> Context {
         let variables = HashMap::new();
-        Context { variables: variables }
+        Context { variables: vec![variables], current_scope: 0 }
     }
 
-    fn add<T: Any>(&mut self, key: &str, val: &T) {
+    fn current_variables(&mut self) -> &mut HashMap<String, Variable> {
+        &mut self.variables[self.current_scope]
+    }
+
+    pub fn add<T: Any>(&mut self, key: &str, val: &T) {
         let val_any = val as &Any;
 
         if let Some(string) = val_any.downcast_ref::<&str>() {
-            self.variables.insert(key.to_string(), Variable::String(string.to_string()));
+            self.current_variables().insert(key.to_string(), Variable::String(string.to_string()));
         } else if let Some(number) = val_any.downcast_ref::<f64>() {
-            self.variables.insert(key.to_string(), Variable::Number(*number));
+            self.current_variables().insert(key.to_string(), Variable::Number(*number));
         } else if let Some(boolean) = val_any.downcast_ref::<bool>() {
-            self.variables.insert(key.to_string(), Variable::Boolean(*boolean));
+            self.current_variables().insert(key.to_string(), Variable::Boolean(*boolean));
         } else {
             panic!("Tried to add unknown type to context");
         }
 
     }
 
-    fn lookup(&self, key: &str) -> Option<&Variable> {
-        self.variables.get(key)
+    pub fn lookup(&mut self, key: &str) -> Option<&Variable> {
+        for scope in self.variables.iter().rev() {
+            match scope.get(key) {
+                Some(val)   => return Some(val),
+                None        => continue,
+            }
+        }
+        None
+    }
+
+    pub fn push(&mut self) {
+        self.variables.push(HashMap::new());
+        self.current_scope += 1;
+    }
+
+    pub fn pop(&mut self) {
+        if self.current_scope >= 1 {
+            self.variables.pop();
+            self.current_scope -= 1;
+        } else {
+            panic!("tried to pop one too many scopes!");
+        }
     }
 }
 
@@ -46,7 +71,7 @@ mod tests {
 
     #[test]
     fn new_works() {
-        let mut context = Context::new();
+        let context = Context::new();
     }
 
     #[test]
@@ -100,4 +125,54 @@ mod tests {
         let mut context = Context::new();
         context.add("boom", &123);
     }
+
+    #[test]
+    fn can_push_new_scope() {
+        let mut context = Context::new();
+        context.push();
+    }
+
+    #[test]
+    fn can_push_then_pop_scope() {
+        let mut context = Context::new();
+        context.push();
+        context.pop();
+
+    }
+
+    #[test]
+    #[should_panic(expected = "tried to pop one too many scopes!")]
+    fn cant_pop_when_no_push() {
+        let mut context = Context::new();
+        context.pop();
+    }
+
+    #[test]
+    fn lookup_current_scope() {
+        let mut context = Context::new();
+        context.push();
+        context.add("test", &true);
+
+        assert_eq!(*context.lookup("test").unwrap(), Variable::Boolean(true));
+    }
+
+    #[test]
+    fn lookup_all_scopes() {
+        let mut context = Context::new();
+        context.add("test", &false);
+        context.push();
+
+        assert_eq!(*context.lookup("test").unwrap(), Variable::Boolean(false));
+    }
+
+    fn pop_clear_scope() {
+        let mut context = Context::new();
+        context.push();
+        context.add("test", &true);
+        context.pop();
+
+        assert_eq!(context.lookup("test"), None);
+
+    }
+
 }
