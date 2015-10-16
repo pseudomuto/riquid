@@ -108,6 +108,18 @@ mod tests {
     }
 
     #[test]
+    fn tokenize_blank_string() {
+        let tokenizer = Tokenizer::new("");
+        assert_tokens(&tokenizer, vec![""]);
+    }
+
+    #[test]
+    fn tokenize_whitespace_only_string() {
+        let tokenizer = Tokenizer::new("  ");
+        assert_tokens(&tokenizer, vec!["  "]);
+    }
+
+    #[test]
     fn tokenize_string_with_no_matches() {
         let tokenizer = Tokenizer::new("hello world");
         assert_tokens(&tokenizer, vec!["hello world"]);
@@ -139,5 +151,26 @@ mod tests {
         ];
 
         assert_tokens(&tokenizer, expected);
+    }
+
+    #[test]
+    fn tokenize_single_block() {
+        let tokenizer = Tokenizer::new(" {%comment%} ");
+        assert_tokens(&tokenizer, vec![" ", "{%comment%}", " "]);
+    }
+
+    #[test]
+    fn tokenize_empty_block_tag() {
+        let tokenizer = Tokenizer::new(" {% thing %} {% comment %} My comment here {% endcomment %} ");
+
+        assert_tokens(&tokenizer, vec![
+            " ",
+            "{% thing %}",
+            " ",
+            "{% comment %}",
+            " My comment here ",
+            "{% endcomment %}",
+            " "
+        ]);
     }
 }
