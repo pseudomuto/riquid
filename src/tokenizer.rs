@@ -55,11 +55,14 @@ impl<'t> Tokenizer<'t> {
         if slices.is_empty() { return vec![(0, self.source.len())]; }
 
         let mut missing = self.missing_middle_slices(slices);
-        let first       = self.missing_first_slice(slices);
-        let last        = self.missing_last_slice(slices);
 
-        if first.is_some() { missing.push(first.unwrap()) }
-        if last.is_some()  { missing.push(last.unwrap()) }
+        if let Some(first) = self.missing_first_slice(slices) {
+            missing.push(first);
+        }
+
+        if let Some(last) = self.missing_last_slice(slices) {
+            missing.push(last);
+        }
 
         missing
     }
