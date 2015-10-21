@@ -35,6 +35,7 @@ impl Parser {
             .and_then(|token_type| {
                 match token_type {
                     Token::Identifier => self.variable(),
+                    Token::OpenRound => self.range(),
                     Token::String | Token::Number => self.consume(token_type),
                     _ => panic!("Syntax Error")
                 }
@@ -88,6 +89,17 @@ impl Parser {
                     value.push_str(&self.variable().unwrap());
                 }
 
+                Some(value)
+            })
+    }
+
+    fn range(&mut self) -> Option<String> {
+        self.consume(Token::OpenRound)
+            .and_then(|mut value| {
+                value.push_str(&self.expression().unwrap());
+                value.push_str(&self.consume(Token::Range).unwrap());
+                value.push_str(&self.expression().unwrap());
+                value.push_str(&self.consume(Token::CloseRound).unwrap());
                 Some(value)
             })
     }
@@ -173,5 +185,14 @@ mod tests {
         assert_eq!("6.0", parser.expression().unwrap());
         assert_eq!("'lol'", parser.expression().unwrap());
         assert_eq!("\"wut\"", parser.expression().unwrap());
+    }
+
+    #[test]
+    fn expression_parsing_ranges() {
+        let mut parser = Parser::new("(5..7) (1.5..9.6) (young..old) (hi[5].wat..old)");
+        assert_eq!("(5..7)", parser.expression().unwrap());
+        assert_eq!("(1.5..9.6)", parser.expression().unwrap());
+        assert_eq!("(young..old)", parser.expression().unwrap());
+        assert_eq!("(hi[5].wat..old)", parser.expression().unwrap());
     }
 }
