@@ -42,6 +42,21 @@ impl Parser {
             })
     }
 
+    pub fn argument(&mut self) -> Option<String> {
+        if self.is_current(Token::Identifier) && self.is_current_offset(Token::Colon, 1) {
+            let mut result = String::new();
+            result.push_str(&self.consume(Token::Identifier).unwrap());
+            result.push_str(&self.consume(Token::Colon).unwrap());
+
+            return self.expression().and_then(|value| {
+                result.push_str(&value);
+                Some(result)
+            });
+        }
+
+        self.expression()
+    }
+
     pub fn is_current(&self, token: Token) -> bool {
         self.is_current_offset(token, 0)
     }
@@ -194,5 +209,26 @@ mod tests {
         assert_eq!("(1.5..9.6)", parser.expression().unwrap());
         assert_eq!("(young..old)", parser.expression().unwrap());
         assert_eq!("(hi[5].wat..old)", parser.expression().unwrap());
+    }
+
+    #[test]
+    fn argument_parses_simple_arguments() {
+        let mut parser = Parser::new("filter: hi?.there[5]");
+        parser.consume(Token::Identifier);
+        parser.consume(Token::Colon);
+
+        assert_eq!("hi?.there[5]", parser.argument().unwrap());
+    }
+
+    #[test]
+    fn argument_can_handle_keyword_arguments() {
+        let mut parser = Parser::new("filter: hi?.there[5], type: 7");
+
+        parser.consume(Token::Identifier);
+        parser.consume(Token::Colon);
+        assert_eq!("hi?.there[5]", parser.argument().unwrap());
+
+        parser.consume(Token::Comma);
+        assert_eq!("type:7", parser.argument().unwrap());
     }
 }
