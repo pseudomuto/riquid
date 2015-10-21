@@ -1,6 +1,4 @@
 use std::fmt;
-use std::iter::Map;
-use std::slice::Iter;
 
 use regex::Regex;
 
